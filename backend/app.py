@@ -17,6 +17,14 @@ admin_events = AdminEventsManager()
 db = AdminDatabase()
 detector = DetectionBridge()
 
+
+def has_real_event(report: dict) -> bool:
+    if not isinstance(report, dict):
+        return False
+
+    events = report.get("events", {}) if isinstance(report.get("events", {}), dict) else {}
+    return any(events.values())
+
 @app.websocket("/ws")
 async def ws_client(websocket: WebSocket):
     await websocket.accept()
@@ -42,10 +50,11 @@ async def ws_client(websocket: WebSocket):
             await video_manager.broadcast_frame(cam, frame_b64)
 
             sketch, report = detector.run(image, cam)
-            db.save_event(cam, report)
-            print("REPORT ENVIADO A FLET:", report)
 
-            await admin_events.broadcast_event(cam, report)
+            if has_real_event(report):
+                db.save_event(cam, report)
+                print("REPORT ENVIADO A FLET:", report)
+                await admin_events.broadcast_event(report)
 
             await websocket.send_text("ok")
 

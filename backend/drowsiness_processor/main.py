@@ -24,17 +24,15 @@ class DrowsinessDetectionSystem:
             points_processed = self.points_processing.main(key_points)
             features = self.features_processing.main(points_processed)
 
+            event_flags = self.features_processing.extract_event_flags(features)
+
             # Visual overlay
             sketch = self.visualizer.visualize_all_reports(sketch, features)
 
-            # FILTRO DE EVENTO REAL
-            if self.reports._has_real_event(features):
-                self.reports.save(camera_id, features)
-
-                json_str = self.reports.generate_json_report(features, camera_id)
+            json_str = self.reports.generate_json_report(event_flags, camera_id)
+            try:
                 self.json_report = json.loads(json_str)
-            else:
-                # Nada que enviar si no hay evento
+            except json.JSONDecodeError:
                 self.json_report = {}
 
         return face_image, sketch, self.json_report

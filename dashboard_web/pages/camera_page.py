@@ -2,6 +2,7 @@ import flet as ft
 import threading
 import websocket
 import json
+import time
 from components.video_box import VideoBox
 
 class CameraPage(ft.Column):
@@ -69,12 +70,10 @@ class CameraPage(ft.Column):
 
                         data = json.loads(msg)
 
-                        if data["camera_id"] != self.camera_id:
+                        if data.get("camera_id") != self.camera_id:
                             continue
 
-                        rep = data["report"]
-
-                        txt = self.format_report(rep)
+                        txt = self.format_report(data)
 
                         self.detect_text.value = txt
                         self.page.update()
@@ -87,28 +86,29 @@ class CameraPage(ft.Column):
         self.thread.start()
 
     def format_report(self, rep: dict) -> str:
+        events = rep.get("events", {}) if isinstance(rep, dict) else {}
+
         lines = []
 
-        if rep.get("eye_rub_first_hand", {}).get("eye_rub_report"):
-            lines.append("👋 Frotado de ojos (mano 1)")
+        if events.get("eye_rub"):
+            lines.append("👋 Frotado de ojos")
 
-        if rep.get("eye_rub_second_hand", {}).get("eye_rub_report"):
-            lines.append("👋 Frotado de ojos (mano 2)")
-
-        flick = rep.get("flicker_and_micro_sleep", {})
-        if flick.get("flicker_report"):
+        if events.get("flicker"):
             lines.append("⚡ Parpadeo excesivo")
 
-        if flick.get("micro_sleep_report"):
+        if events.get("micro_sleep"):
             lines.append("💤 Microsueño detectado")
 
-        if rep.get("pitch", {}).get("pitch_report"):
+        if events.get("pitch"):
             lines.append("📐 Inclinación peligrosa")
 
-        if rep.get("yawn", {}).get("yawn_report"):
+        if events.get("yawn"):
             lines.append("😮 Bostezo detectado")
 
         if not lines:
             return "Sin actividad detectada"
+
+        if rep.get("timestamp"):
+            lines.append(f"⏱ {rep['timestamp']}")
 
         return "\n".join(lines)

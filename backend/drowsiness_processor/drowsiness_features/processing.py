@@ -40,3 +40,18 @@ class FeaturesDrowsinessProcessing:
         self.processed_feature['pitch'] = self.features_drowsiness['pitch'].process(distances.get('head', {}))
         self.processed_feature['yawn'] = self.features_drowsiness['yawn'].process(distances.get('mouth', {}))
         return self.processed_feature
+
+    def extract_event_flags(self, processed_feature: dict) -> dict:
+        """Return a normalized map of boolean events expected by the rest of the system."""
+        flicker_data = processed_feature.get('flicker_and_micro_sleep', {}) or {}
+
+        return {
+            "eye_rub": bool(
+                (processed_feature.get('eye_rub_first_hand') or {}).get('eye_rub_report') or
+                (processed_feature.get('eye_rub_second_hand') or {}).get('eye_rub_report')
+            ),
+            "flicker": bool(flicker_data.get('flicker_report')),
+            "micro_sleep": bool(flicker_data.get('micro_sleep_report')),
+            "pitch": bool((processed_feature.get('pitch') or {}).get('pitch_report')),
+            "yawn": bool((processed_feature.get('yawn') or {}).get('yawn_report')),
+        }

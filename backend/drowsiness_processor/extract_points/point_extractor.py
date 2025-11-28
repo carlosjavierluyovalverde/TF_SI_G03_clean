@@ -14,14 +14,18 @@ class PointsExtractor:
     def __init__(self):
         self.face_mesh = FaceMeshProcessor()
         self.hands = HandsProcessor()
+        self.last_eye_distance = 0.0
+        self.last_mesh_success = False
 
     def process(self, face_image: np.ndarray) -> Tuple[dict, bool, np.ndarray]:
         face_points, mesh_success, draw_sketch = self.face_mesh.process(face_image, draw=True)
+        self.last_mesh_success = mesh_success
         if mesh_success:
             eye_points = face_points.get('eyes', {}).get('distances', [])
             eye_distance = 0.0
             if len(eye_points) >= 2:
                 eye_distance = np.linalg.norm(np.array(eye_points[0]) - np.array(eye_points[1]))
+            self.last_eye_distance = eye_distance
 
             if eye_distance < 10 or np.mean(face_image) < 20:
                 return face_points, False, draw_sketch
@@ -39,6 +43,7 @@ class PointsExtractor:
                 return copy.deepcopy(face_points), True, draw_sketch
         else:
             #logger.warning("Face mesh: failed, no drowsiness_features recognition.")
+            self.last_eye_distance = 0.0
             return copy.deepcopy(face_points), False, draw_sketch
 
     def merge_points(self, face_points: dict, hands_points: dict) -> dict:

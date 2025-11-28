@@ -16,9 +16,25 @@ class DrowsinessDetectionSystem:
         self.visualizer = ReportVisualizer()
         self.reports = DrowsinessReports()
         self.json_report = {}
+        self.face_mesh_failures = 0
 
     def frame_processing(self, face_image: np.ndarray, camera_id: str):
+        brightness = float(np.mean(face_image))
+        if brightness < 25:
+            self.json_report = {}
+            return face_image, face_image, self.json_report
+
         key_points, control_process, sketch = self.points_extractor.process(face_image)
+
+        if self.points_extractor.last_mesh_success:
+            self.face_mesh_failures = 0
+        else:
+            self.face_mesh_failures += 1
+
+        if self.face_mesh_failures > 3 or (
+            self.points_extractor.last_mesh_success and self.points_extractor.last_eye_distance < 12
+        ):
+            control_process = False
 
         if control_process:
             points_processed = self.points_processing.main(key_points)

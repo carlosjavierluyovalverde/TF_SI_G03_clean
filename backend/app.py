@@ -66,10 +66,12 @@ async def ws_client(websocket: WebSocket):
             img_bytes = base64.b64decode(frame_b64)
             img_np = np.frombuffer(img_bytes, np.uint8)
             image = cv2.imdecode(img_np, cv2.IMREAD_COLOR)
+            rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            print("[DETECTOR INPUT RGB]", rgb.shape)
 
             await video_manager.broadcast_frame(cam, frame_b64)
 
-            sketch, report = detector.run(image, cam)
+            sketch, report = detector.run(rgb, cam)
 
             if has_real_event(report):
                 report = dict(report)

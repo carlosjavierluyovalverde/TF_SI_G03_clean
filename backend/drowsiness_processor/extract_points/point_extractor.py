@@ -1,3 +1,4 @@
+import copy
 import numpy as np
 from typing import Tuple
 import logging as log
@@ -31,14 +32,14 @@ class PointsExtractor:
                 #logger.info(
                 #    "Face mesh: successful.\nHands detect: succesfull. \nExtract: blinks, microsleeps, yawning, "
                 #    "nodding, eye rubbing")
-                return merged_points, True, draw_sketch
+                return copy.deepcopy(merged_points), True, draw_sketch
             else:
                 #logger.info(
                 #    "Face mesh: successful.\nHands detect: failed. \nExtract: blinks, microsleeps, yawning, nodding")
-                return face_points, True, draw_sketch
+                return copy.deepcopy(face_points), True, draw_sketch
         else:
             #logger.warning("Face mesh: failed, no drowsiness_features recognition.")
-            return face_points, False, draw_sketch
+            return copy.deepcopy(face_points), False, draw_sketch
 
     def merge_points(self, face_points: dict, hands_points: dict) -> dict:
         merged_points = {**face_points, **hands_points}

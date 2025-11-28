@@ -78,9 +78,8 @@ async def ws_client(websocket: WebSocket):
                     report = dict(report)
                     report["timestamp"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
                 print(
-                    "[EVENT RECEIVED]",
-                    "camera=", cam,
-                    "timestamp=", report.get("timestamp"),
+                    "[CAMERA EVENT RECEIVED]",
+                    "cam=", cam,
                     "payload=", report,
                 )
                 db.save_event(cam, report)

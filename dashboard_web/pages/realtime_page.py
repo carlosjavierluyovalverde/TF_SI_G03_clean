@@ -3,6 +3,7 @@ import json
 import threading
 import time
 import websocket
+from components.event_socket_manager import EventSocketManager
 
 
 class RealTimePage(ft.Column):
@@ -14,6 +15,7 @@ class RealTimePage(ft.Column):
         self.stop = False
         self.thread = None
         self.reports = []
+        self.event_manager = EventSocketManager()
 
         self.camera_filter = ft.Dropdown(
             label="Cámara",
@@ -70,44 +72,32 @@ class RealTimePage(ft.Column):
 
     def will_unmount(self):
         self.stop = True
-        try:
-            if self.ws:
-                self.ws.close()
-        except:
-            pass
+        self.event_manager.remove_listener(self._handle_event)
 
     def start_event_socket(self):
 
-        def _run():
-            url = "ws://127.0.0.1:8000/ws/admin/events"
+        for ev in self.event_manager.get_events():
+            formatted = self._prepare_report(ev, ev.get("camera_id"))
+            if formatted:
+                self.reports.append(formatted)
 
-            while not self.stop:
-                try:
-                    self.ws = websocket.WebSocket()
-                    self.ws.connect(url)
+        self.refresh_rows()
 
-                    while not self.stop:
-                        msg = self.ws.recv()
-                        if not msg:
-                            continue
+        self.event_manager.add_listener(self._handle_event)
 
-                        data = json.loads(msg)
-                        data_camera_id = str(data.get("camera_id", "")).strip().lower()
+    def _handle_event(self, event_data: dict):
+        def _apply():
+            formatted = self._prepare_report(event_data, event_data.get("camera_id"))
+            if not formatted:
+                return
+            self.reports.insert(0, formatted)
+            self.reports = self.reports[:50]
+            self.refresh_rows()
 
-                        formatted = self._prepare_report(data, data_camera_id)
-                        if not formatted:
-                            continue
-
-                        self.reports.insert(0, formatted)
-                        self.reports = self.reports[:50]
-                        self.refresh_rows()
-
-                except:
-                    time.sleep(1)
-                    continue
-
-        self.thread = threading.Thread(target=_run, daemon=True)
-        self.thread.start()
+        try:
+            self.page.call_from_thread(_apply)
+        except Exception:
+            _apply()
 
     def _prepare_report(self, data: dict, camera_id: str) -> dict:
         events = data.get("events", {}) if isinstance(data, dict) else {}

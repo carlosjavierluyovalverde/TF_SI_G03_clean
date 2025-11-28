@@ -3,6 +3,7 @@ import json
 import threading
 import time
 import websocket
+import requests
 from components.event_socket_manager import EventSocketManager
 
 
@@ -16,6 +17,8 @@ class RealTimePage(ft.Column):
         self.thread = None
         self.reports = []
         self.event_manager = EventSocketManager()
+        self.listener_registered = False
+        print("[PAGE INIT] Realtime")
 
         self.camera_filter = ft.Dropdown(
             label="Cámara",
@@ -68,14 +71,21 @@ class RealTimePage(ft.Column):
 
     def did_mount(self):
         self.stop = False
+        self._switch_backend_mode("multi")
         self.start_event_socket()
 
     def will_unmount(self):
         self.stop = True
         self.event_manager.remove_listener(self._handle_event)
+        self.listener_registered = False
+        self._switch_backend_mode("none")
 
     def start_event_socket(self):
+        if self.listener_registered:
+            print("[WS LISTENER EXISTS] page=realtime")
+            return
 
+        print("[WS LISTENER START] page=realtime")
         for ev in self.event_manager.get_events():
             formatted = self._prepare_report(ev, ev.get("camera_id"))
             if formatted:
@@ -84,6 +94,7 @@ class RealTimePage(ft.Column):
         self.refresh_rows()
 
         self.event_manager.add_listener(self._handle_event)
+        self.listener_registered = True
 
     def _handle_event(self, event_data: dict):
         def _apply():
@@ -93,11 +104,18 @@ class RealTimePage(ft.Column):
             self.reports.insert(0, formatted)
             self.reports = self.reports[:50]
             self.refresh_rows()
+            print("[APPEND EVENT] cam=", event_data.get("camera_id"))
 
         try:
             self.page.call_from_thread(_apply)
         except Exception:
             _apply()
+
+    def _switch_backend_mode(self, mode: str):
+        try:
+            requests.post("http://127.0.0.1:8000/mode", json={"mode": mode}, timeout=2)
+        except Exception:
+            pass
 
     def _prepare_report(self, data: dict, camera_id: str) -> dict:
         events = data.get("events", {}) if isinstance(data, dict) else {}

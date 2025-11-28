@@ -11,6 +11,7 @@ from modules.video_manager import VideoWebSocketManager
 from modules.admin_events import AdminEventsManager
 from modules.admin_database import AdminDatabase
 from modules.detection_bridge import DetectionBridge
+from modules.video_threads import VideoThreadManager
 
 app = FastAPI()
 
@@ -36,6 +37,15 @@ video_manager = VideoWebSocketManager()
 admin_events = AdminEventsManager()
 db = AdminDatabase(db_path="data/events.db")
 detector = DetectionBridge()
+active_mode = "none"
+thread_manager = VideoThreadManager(
+    detector=detector,
+    video_manager=video_manager,
+    admin_events=admin_events,
+    db=db,
+    rtsp_url="rtsp://192.168.101.3:8080/h264_pcm.sdp",
+)
+thread_manager.stop_all()
 
 
 def has_real_event(report: dict) -> bool:
@@ -44,6 +54,29 @@ def has_real_event(report: dict) -> bool:
 
     events = report.get("events", {}) if isinstance(report.get("events", {}), dict) else {}
     return any(events.values())
+
+
+def switch_mode(new_mode: str):
+    global active_mode
+    if new_mode == active_mode:
+        return {"mode": active_mode}
+
+    print("[ACTIVE_MODE]", "from=", active_mode, "to=", new_mode)
+
+    if new_mode == "camA":
+        thread_manager.stop_camB()
+        thread_manager.start_camA()
+    elif new_mode == "camB":
+        thread_manager.stop_camA()
+        thread_manager.start_camB()
+    elif new_mode == "multi":
+        thread_manager.start_multi()
+    else:
+        thread_manager.stop_all()
+        new_mode = "none"
+
+    active_mode = new_mode
+    return {"mode": active_mode}
 
 @app.websocket("/ws")
 async def ws_client(websocket: WebSocket):
@@ -96,7 +129,7 @@ async def ws_client(websocket: WebSocket):
 async def ws_admin_video(websocket: WebSocket):
     camera = websocket.query_params.get("camera_id")
 
-    if camera not in ["camA"]:
+    if camera not in ["camA", "camB"]:
         await websocket.close()
         return
 
@@ -125,6 +158,7 @@ async def list_admin_events(camera_id: Optional[str] = None, since: Optional[str
         return {"events": []}
 
     effective_since = since or db.session_start
+    camera_lower = camera_id.lower() if camera_id else None
     print(
         "[QUERY EVENTS]",
         "camera=", camera_id,
@@ -132,5 +166,26 @@ async def list_admin_events(camera_id: Optional[str] = None, since: Optional[str
         "limit=", limit,
     )
 
-    events = db.get_events(camera_id=camera_id, since=effective_since, limit=limit)
+    events = db.get_events(camera_id=camera_lower, since=effective_since, limit=limit)
     return {"events": events, "session_start": db.session_start}
+
+
+@app.get("/events/recent")
+async def recent_events(camera_id: Optional[str] = None, limit: int = 100):
+    effective_camera = camera_id.lower() if camera_id else None
+    if effective_camera and effective_camera not in admin_events.VALID_CAMERA_IDS:
+        return {"events": [], "session_start": db.session_start}
+
+    events = db.get_events(camera_id=effective_camera, since=db.session_start, limit=limit)
+    return {"events": events, "session_start": db.session_start}
+
+
+@app.post("/mode")
+async def set_mode(payload: dict):
+    mode = str(payload.get("mode", "none")).strip()
+    return switch_mode(mode)
+
+
+@app.get("/mode")
+async def get_mode():
+    return {"mode": active_mode}

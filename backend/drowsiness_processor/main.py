@@ -35,4 +35,7 @@ class DrowsinessDetectionSystem:
             except json.JSONDecodeError:
                 self.json_report = {}
 
+        else:
+            self.json_report = {}
+
         return face_image, sketch, self.json_report

@@ -17,7 +17,7 @@ class OverviewPage(ft.Column):
             ),
 
             ft.ElevatedButton(
-                "Vista Multicámara (A/B/C)",
+                "Vista Multicámara (A/B)",
                 on_click=lambda e: page.go("/multi"),
                 width=300
             ),
@@ -30,11 +30,6 @@ class OverviewPage(ft.Column):
             ft.ElevatedButton(
                 "Cámara B",
                 on_click=lambda e: page.go("/camera/camB"),
-                width=200
-            ),
-            ft.ElevatedButton(
-                "Cámara C",
-                on_click=lambda e: page.go("/camera/camC"),
                 width=200
             ),
         ]

@@ -1,9 +1,13 @@
-import flet as ft
+import flet as ft␊
 import threading
 import websocket
 import json
 import time
+import requests
 from components.video_box import VideoBox
+from datetime import datetime
+
+APP_START_TIME = datetime.utcnow().isoformat()
 
 class CameraPage(ft.Column):
 
@@ -13,6 +17,7 @@ class CameraPage(ft.Column):
         self.page = page
         self.camera_id = camera_id
         self.camera_id_canonical = str(camera_id).strip().lower()
+        self.session_start = APP_START_TIME
 
         self.video_box = VideoBox(camera_id, page)
 
@@ -21,6 +26,12 @@ class CameraPage(ft.Column):
             size=20,
             weight="bold",
             color="white"
+        )
+
+        self.events_list = ft.ListView(
+            spacing=6,
+            height=220,
+            auto_scroll=True,
         )
 
         self.controls = [
@@ -33,6 +44,16 @@ class CameraPage(ft.Column):
                 border_radius=10,
                 width=480
             ),
+            ft.Container(
+                content=ft.Column([
+                    ft.Text("Eventos recientes", size=18, weight="bold"),
+                    self.events_list,
+                ], tight=True, spacing=10),
+                padding=10,
+                bgcolor="#111",
+                border_radius=10,
+                width=480
+            ),
             ft.ElevatedButton("Volver", on_click=lambda e: page.go("/"))
         ]
 
@@ -42,6 +63,7 @@ class CameraPage(ft.Column):
 
     def did_mount(self):
         self.stop = False
+        self.load_recent_events()
         self.start_event_socket()
         self.video_box.did_mount()
 
@@ -56,8 +78,8 @@ class CameraPage(ft.Column):
 
     def start_event_socket(self):
 
-        def _run():
-            url = "ws://127.0.0.1:8000/ws/admin/events"
+        def _run():␊
+            url = "ws://127.0.0.1:8000/ws/admin/events"␊
 
             while not self.stop:
                 try:
@@ -65,10 +87,10 @@ class CameraPage(ft.Column):
                     self.ws.connect(url)
 
                     while not self.stop:
-                        msg = self.ws.recv()
-                        if not msg:
-                            continue
-
+                        msg = self.ws.recv()␊
+                        if not msg:␊
+                            continue␊
+␊
                         data = json.loads(msg)
 
                         data_camera_id = str(data.get("camera_id", "")).strip().lower()
@@ -76,10 +98,7 @@ class CameraPage(ft.Column):
                         if data_camera_id != self.camera_id_canonical:
                             continue
 
-                        txt = self.format_report(data)
-
-                        self.detect_text.value = txt
-                        self.page.update()
+                        self.page.call_from_thread(self._handle_new_event, data)
 
                 except:
                     time.sleep(1)
@@ -115,3 +134,64 @@ class CameraPage(ft.Column):
             lines.append(f"⏱ {rep['timestamp']}")
 
         return "\n".join(lines)
+
+    def _handle_new_event(self, data: dict):
+        txt = self.format_report(data)
+        self.detect_text.value = txt
+        self._append_event_entry(data)
+        self.page.update()
+
+    def _append_event_entry(self, report: dict, fallback_ts: str = "-"):
+        summary = self._summarize_events(report)
+        if not summary:
+            return
+
+        ts = report.get("timestamp") or fallback_ts
+        row = ft.Row([
+            ft.Text(ts, width=140, color="white"),
+            ft.Text(summary, expand=True, color="white"),
+        ], spacing=10)
+
+        self.events_list.controls.insert(0, row)
+        self.events_list.controls = self.events_list.controls[:100]
+
+    def _summarize_events(self, rep: dict) -> str:
+        events = rep.get("events", {}) if isinstance(rep, dict) else {}
+        active = [k for k, v in events.items() if v]
+        labels = {
+            "eye_rub": "👋 Frotado de ojos",
+            "flicker": "⚡ Parpadeo excesivo",
+            "micro_sleep": "💤 Microsueño",
+            "pitch": "📐 Inclinación",
+            "yawn": "😮 Bostezo",
+        }
+
+        return ", ".join(labels.get(a, a) for a in active)
+
+    def load_recent_events(self):
+        try:
+            resp = requests.get(
+                "http://127.0.0.1:8000/admin/events",
+                params={
+                    "camera_id": self.camera_id,
+                    "since": self.session_start,
+                    "limit": 100,
+                },
+                timeout=5,
+            )
+
+            if resp.status_code != 200:
+                return
+
+            payload = resp.json()
+            events = payload.get("events", []) if isinstance(payload, dict) else []
+
+            for ev in events:
+                report = ev.get("report", {}) if isinstance(ev, dict) else {}
+                if str(ev.get("camera_id", "")).strip().lower() != self.camera_id_canonical:
+                    continue
+                self._append_event_entry(report, fallback_ts=str(ev.get("timestamp", "-")))
+
+            self.page.update()
+        except Exception:
+            return

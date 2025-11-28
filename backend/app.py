@@ -3,6 +3,7 @@ import base64
 import json
 import numpy as np
 import asyncio
+from typing import Optional
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 from modules.video_manager import VideoWebSocketManager
@@ -106,3 +107,12 @@ async def ws_admin_events(websocket: WebSocket):
             await asyncio.sleep(1)
     except:
         admin_events.disconnect(websocket)
+
+
+@app.get("/admin/events")
+async def list_admin_events(camera_id: Optional[str] = None, since: Optional[str] = None, limit: int = 100):
+    if camera_id and camera_id.lower() not in admin_events.VALID_CAMERA_IDS:
+        return {"events": []}
+
+    events = db.get_events(camera_id=camera_id, since=since, limit=limit)
+    return {"events": events}

@@ -1,0 +1,27 @@
+# ENTORNOS
+venv/
+*/venv/
+env/
+*/env/
+
+# BASES DE DATOS
+*.db
+*.sqlite
+
+# ARCHIVOS GRANDES DEL MODELO / LIBRERÍAS
+*.tflite
+*.h5
+*.onnx
+*.pyd
+*.dll
+
+# COMPILADOS PYTHON
+__pycache__/
+*.pyc
+
+# LOGS
+*.log
+
+# ARCHIVOS TEMPORALES
+.DS_Store
+*.tmp

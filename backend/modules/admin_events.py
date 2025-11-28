@@ -25,10 +25,9 @@ class AdminEventsManager:
         for ws in list(self.connections):
             try:
                 print(
-                    "[WS SEND]",
-                    "camera=", payload.get("camera_id"),
-                    "timestamp=", payload.get("timestamp"),
-                    "payload=", payload,
+                    "[WEBSOCKET SEND]",
+                    "cam=", payload.get("camera_id"),
+                    "event=", payload,
                 )
                 await ws.send_text(msg)
             except:

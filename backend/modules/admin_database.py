@@ -75,9 +75,9 @@ class AdminDatabase:
         self.conn.execute(q, (camera_id.lower(), json.dumps(report)))
         self.conn.commit()
         print(
-            "[EVENT STORED]",
-            "camera=", camera_id,
-            "timestamp=", report.get("timestamp"),
+            "[CAMERA EVENT STORED]",
+            "cam=", camera_id,
+            "ts=", report.get("timestamp"),
             "payload=", report,
         )
 

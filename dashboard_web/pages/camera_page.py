@@ -90,6 +90,7 @@ class CameraPage(ft.Column):
 
         def _run():
             url = "ws://127.0.0.1:8000/ws/admin/events"
+            print("[WEBSOCKET LISTENER STARTED]", "cam=", self.camera_id_canonical)
 
             while not self.stop:
                 try:
@@ -100,14 +101,14 @@ class CameraPage(ft.Column):
                         msg = self.ws.recv()
                         if not msg:
                             continue
-                            
+
                         data = json.loads(msg)
 
                         data_camera_id = str(data.get("camera_id", "")).strip().lower()
 
                         if data_camera_id != self.camera_id_canonical:
                             continue
-                        print("[WS MESSAGE RECEIVED]", "camera=", data_camera_id, "payload=", data)
+                        print("[WEBSOCKET MESSAGE RECEIVED]", "cam=", data_camera_id, "payload=", data)
                         self.page.call_from_thread(self._handle_new_event, data)
 
                 except:

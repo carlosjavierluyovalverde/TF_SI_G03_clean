@@ -3,7 +3,6 @@ import json
 import threading
 import time
 import websocket
-import requests
 
 
 class RealTimePage(ft.Column):
@@ -67,7 +66,6 @@ class RealTimePage(ft.Column):
 
     def did_mount(self):
         self.stop = False
-        self.load_history()
         self.start_event_socket()
 
     def will_unmount(self):
@@ -110,36 +108,6 @@ class RealTimePage(ft.Column):
 
         self.thread = threading.Thread(target=_run, daemon=True)
         self.thread.start()
-
-    def load_history(self):
-        try:
-            resp = requests.get(
-                "http://127.0.0.1:8000/admin/events",
-                params={"limit": 200},
-                timeout=5,
-            )
-
-            if resp.status_code != 200:
-                return
-
-            payload = resp.json()
-            events = payload.get("events", []) if isinstance(payload, dict) else []
-
-            history = []
-            for ev in events:
-                report = ev.get("report", {}) if isinstance(ev, dict) else {}
-                cam = str(ev.get("camera_id", "")).strip().lower()
-                merged = dict(report)
-                merged["timestamp"] = merged.get("timestamp") or ev.get("timestamp")
-
-                formatted = self._prepare_report(merged, cam)
-                if formatted:
-                    history.append(formatted)
-
-            self.reports = history
-            self.refresh_rows()
-        except Exception:
-            return
 
     def _prepare_report(self, data: dict, camera_id: str) -> dict:
         events = data.get("events", {}) if isinstance(data, dict) else {}

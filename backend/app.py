@@ -3,7 +3,6 @@ import base64
 import json
 import numpy as np
 import asyncio
-from datetime import datetime
 from typing import Optional
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
@@ -119,4 +118,4 @@ async def list_admin_events(camera_id: Optional[str] = None, since: Optional[str
         return {"events": []}
 
     events = db.get_events(camera_id=camera_id, since=since, limit=limit)
-    return {"session_start": db.session_start, "events": events}
+    return {"events": events}

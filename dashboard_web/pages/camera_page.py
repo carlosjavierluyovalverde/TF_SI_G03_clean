@@ -5,6 +5,9 @@ import json
 import time
 import requests
 from components.video_box import VideoBox
+from datetime import datetime
+
+APP_START_TIME = datetime.utcnow().isoformat()
 
 class CameraPage(ft.Column):
 
@@ -14,6 +17,7 @@ class CameraPage(ft.Column):
         self.page = page
         self.camera_id = camera_id
         self.camera_id_canonical = str(camera_id).strip().lower()
+        self.session_start = APP_START_TIME
 
         self.video_box = VideoBox(camera_id, page)
 
@@ -22,6 +26,12 @@ class CameraPage(ft.Column):
             size=20,
             weight="bold",
             color="white"
+        )
+
+        self.events_list = ft.ListView(
+            spacing=6,
+            height=220,
+            auto_scroll=True,
         )
 
         self.events_list = ft.ListView(
@@ -86,7 +96,7 @@ class CameraPage(ft.Column):
                         msg = self.ws.recv()
                         if not msg:
                             continue
-
+                            
                         data = json.loads(msg)
 
                         data_camera_id = str(data.get("camera_id", "")).strip().lower()
@@ -170,6 +180,7 @@ class CameraPage(ft.Column):
                 "http://127.0.0.1:8000/admin/events",
                 params={
                     "camera_id": self.camera_id,
+                    "since": self.session_start,
                     "limit": 100,
                 },
                 timeout=5,

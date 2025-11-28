@@ -77,15 +77,13 @@ class AdminDatabase:
         q = "SELECT id, camera_id, report_json, timestamp FROM events WHERE 1=1"
         params = []
 
-        effective_since = since or self.session_start
-
         if camera_id:
             q += " AND lower(camera_id) = lower(?)"
             params.append(camera_id)
 
-        if effective_since:
+        if since:
             q += " AND timestamp >= ?"
-            params.append(effective_since)
+            params.append(since)
 
         q += " ORDER BY timestamp DESC LIMIT ?"
         params.append(limit)

@@ -78,6 +78,29 @@ def switch_mode(new_mode: str):
     active_mode = new_mode
     return {"mode": active_mode}
 
+
+def switch_mode(new_mode: str):
+    global active_mode
+    if new_mode == active_mode:
+        return {"mode": active_mode}
+
+    print("[ACTIVE_MODE]", "from=", active_mode, "to=", new_mode)
+
+    if new_mode == "camA":
+        thread_manager.stop_camB()
+        thread_manager.start_camA()
+    elif new_mode == "camB":
+        thread_manager.stop_camA()
+        thread_manager.start_camB()
+    elif new_mode == "multi":
+        thread_manager.start_multi()
+    else:
+        thread_manager.stop_all()
+        new_mode = "none"
+
+    active_mode = new_mode
+    return {"mode": active_mode}
+
 @app.websocket("/ws")
 async def ws_client(websocket: WebSocket):
     await websocket.accept()

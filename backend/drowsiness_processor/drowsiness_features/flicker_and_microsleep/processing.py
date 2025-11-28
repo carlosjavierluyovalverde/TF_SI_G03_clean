@@ -150,11 +150,11 @@ class FlickerEstimator(DrowsinessProcessor):
 
         micro_sleep = self.micro_sleep_counter.micro_sleep_count
 
-        if elapsed_time >= 0.7:
+        if elapsed_time >= 1.0:
             flicker_data = {
                 "flicker_count": self.flicker_counter.flicker_count,
                 "elapsed_time": elapsed_time,
-                "flicker_report": True,
+                "flicker_report": self.flicker_counter.flicker_count >= 2,
                 "micro_sleep_report": False,
             }
             self.flicker_counter.reset()
@@ -171,7 +171,7 @@ class FlickerEstimator(DrowsinessProcessor):
             return self.micro_sleep_report_generator.generate_report(micro_sleep_data)
 
         return {
-            'flicker_count': f'Counting flickers... {round(0.7 - elapsed_time, 2)} seconds remaining.',
+            'flicker_count': f'Counting flickers... {round(1.0 - elapsed_time, 2)} seconds remaining.',
             'flicker_report': False,
             'micro_sleep_report': False
         }

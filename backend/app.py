@@ -33,7 +33,7 @@ async def health():
 
 video_manager = VideoWebSocketManager()
 admin_events = AdminEventsManager()
-db = AdminDatabase()
+db = AdminDatabase(db_path="data/events.db")
 detector = DetectionBridge()
 
 
@@ -71,6 +71,9 @@ async def ws_client(websocket: WebSocket):
             sketch, report = detector.run(image, cam)
 
             if has_real_event(report):
+                if not report.get("timestamp"):
+                    report = dict(report)
+                    report["timestamp"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
                 db.save_event(cam, report)
                 print("REPORT ENVIADO A FLET:", report)
                 await admin_events.broadcast_event(report)

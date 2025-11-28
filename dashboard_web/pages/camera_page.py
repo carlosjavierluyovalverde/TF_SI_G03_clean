@@ -1,4 +1,4 @@
-import flet as ft␊
+import flet as ft
 import threading
 import websocket
 import json
@@ -26,6 +26,12 @@ class CameraPage(ft.Column):
             size=20,
             weight="bold",
             color="white"
+        )
+
+        self.events_list = ft.ListView(
+            spacing=6,
+            height=220,
+            auto_scroll=True,
         )
 
         self.events_list = ft.ListView(
@@ -78,8 +84,8 @@ class CameraPage(ft.Column):
 
     def start_event_socket(self):
 
-        def _run():␊
-            url = "ws://127.0.0.1:8000/ws/admin/events"␊
+        def _run():
+            url = "ws://127.0.0.1:8000/ws/admin/events"
 
             while not self.stop:
                 try:
@@ -87,10 +93,10 @@ class CameraPage(ft.Column):
                     self.ws.connect(url)
 
                     while not self.stop:
-                        msg = self.ws.recv()␊
-                        if not msg:␊
-                            continue␊
-␊
+                        msg = self.ws.recv()
+                        if not msg:
+                            continue
+                            
                         data = json.loads(msg)
 
                         data_camera_id = str(data.get("camera_id", "")).strip().lower()

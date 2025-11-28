@@ -72,7 +72,6 @@ class CameraPage(ft.Column):
                         data = json.loads(msg)
 
                         data_camera_id = str(data.get("camera_id", "")).strip().lower()
-                        print(f"[DEBUG] Mensaje recibido para camera_id={data_camera_id}")  # TODO: quitar tras depuración
 
                         if data_camera_id != self.camera_id_canonical:
                             continue

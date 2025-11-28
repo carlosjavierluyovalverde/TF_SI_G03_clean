@@ -12,6 +12,24 @@ from modules.detection_bridge import DetectionBridge
 
 app = FastAPI()
 
+@app.get("/")
+async def root():
+    return {
+        "status": "ok",
+        "message": "Backend FastAPI en ejecución",
+        "endpoints": {
+            "websocket": "/ws",
+            "admin_video": "/ws/admin/video",
+            "admin_events": "/ws/admin/events",
+            "health": "/health",
+        },
+    }
+
+
+@app.get("/health")
+async def health():
+    return {"status": "healthy"}
+
 video_manager = VideoWebSocketManager()
 admin_events = AdminEventsManager()
 db = AdminDatabase()

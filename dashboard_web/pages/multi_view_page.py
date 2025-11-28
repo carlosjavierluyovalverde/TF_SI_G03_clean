@@ -10,6 +10,7 @@ class MultiViewPage(ft.Column):
         super().__init__()
         self.page = page
         self.event_manager = EventSocketManager()
+        self.listener_registered = False
         print("[PAGE INIT] Multi")
 
         # camA → WebSocket
@@ -40,7 +41,12 @@ class MultiViewPage(ft.Column):
         self._switch_backend_mode("multi")
         for ev in self.event_manager.get_events():
             self._apply_event(ev)
-        self.event_manager.add_listener(self._handle_event)
+        if self.listener_registered:
+            print("[WS LISTENER EXISTS] page=multi")
+        else:
+            print("[WS LISTENER START] page=multi")
+            self.event_manager.add_listener(self._handle_event)
+            self.listener_registered = True
         self.boxA.did_mount()
         self.boxB.did_mount()
 
@@ -48,6 +54,7 @@ class MultiViewPage(ft.Column):
         self.boxA.will_unmount()
         self.boxB.will_unmount()
         self.event_manager.remove_listener(self._handle_event)
+        self.listener_registered = False
         self._switch_backend_mode("none")
 
     def _summarize_events(self, events: dict) -> str:

@@ -88,6 +88,7 @@ class CameraPage(ft.Column):
     def start_event_socket(self):
 
         if self.ws_thread_running and self.thread and self.thread.is_alive():
+            print("[WS LISTENER EXISTS] page=camera")
             return
 
         def _run():

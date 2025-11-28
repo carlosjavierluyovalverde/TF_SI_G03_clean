@@ -61,14 +61,14 @@ def switch_mode(new_mode: str):
     if new_mode == active_mode:
         return {"mode": active_mode}
 
-    print("[MODE SWITCH]", "from=", active_mode, "to=", new_mode)
+    print("[ACTIVE_MODE]", "from=", active_mode, "to=", new_mode)
 
     if new_mode == "camA":
-        thread_manager.start_camA()
         thread_manager.stop_camB()
+        thread_manager.start_camA()
     elif new_mode == "camB":
-        thread_manager.start_camB()
         thread_manager.stop_camA()
+        thread_manager.start_camB()
     elif new_mode == "multi":
         thread_manager.start_multi()
     else:

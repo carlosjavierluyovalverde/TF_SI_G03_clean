@@ -26,8 +26,11 @@ class EventSocketManager:
         self.thread.start()
 
     def add_listener(self, callback):
-        if callback not in self.listeners:
-            self.listeners.append(callback)
+        if callback in self.listeners:
+            print("[WS LISTENER EXISTS] -> ignoring duplicate")
+            return
+        print("[WS LISTENER START] page=events")
+        self.listeners.append(callback)
 
     def remove_listener(self, callback):
         if callback in self.listeners:

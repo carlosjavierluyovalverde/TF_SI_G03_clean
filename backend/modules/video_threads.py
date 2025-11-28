@@ -14,6 +14,8 @@ class BaseCameraThread(threading.Thread):
         self.admin_events = admin_events
         self.db = db
         self._stop_event = threading.Event()
+        self.last_frame_ts = 0.0
+        self.frame_count = 0
 
     def stop(self):
         self._stop_event.set()
@@ -54,25 +56,40 @@ class BaseCameraThread(threading.Thread):
         self.db.save_event(self.camera_id, report)
         print("[EVENT STORED]", self.camera_id, "ts=", report.get("timestamp"))
         self.admin_events.broadcast_event_threadsafe(report)
-        print("[WS SEND]", self.camera_id, "payload=", report)
+        print("[WS SEND] cam=", self.camera_id, "event=", report)
 
 
 class WebcamThread(BaseCameraThread):
     def __init__(self, detector, video_manager, admin_events, db, source=0):
         super().__init__("camA", detector, video_manager, admin_events, db)
         self.source = source
+        print("[THREAD CREATE] camA")
 
     def run(self):
         print("[THREAD START] camA")
         cap = cv2.VideoCapture(self.source)
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
         while not self.stopped():
-            ret, frame = cap.read()
-            if not ret:
-                time.sleep(0.05)
+            grabbed = cap.grab()
+            if not grabbed:
+                time.sleep(0.001)
                 continue
 
-            self._process_frame(frame)
+            ret, frame = cap.retrieve()
+            if not ret:
+                time.sleep(0.001)
+                continue
+
+            now = time.time()
+            if self.last_frame_ts and now - self.last_frame_ts > 0.3:
+                print("[DELAY WARNING] cam=camA delay=", round(now - self.last_frame_ts, 3))
+            self.last_frame_ts = now
+            self.frame_count += 1
+            print("[FRAME OK] cam=camA ts=", now)
+
+            if self.frame_count % 2 == 0:
+                self._process_frame(frame)
 
         try:
             cap.release()
@@ -85,32 +102,47 @@ class RTSPThread(BaseCameraThread):
     def __init__(self, detector, video_manager, admin_events, db, url):
         super().__init__("camB", detector, video_manager, admin_events, db)
         self.url = url
+        print("[THREAD CREATE] camB")
 
     def run(self):
         print("[THREAD START] camB")
         while not self.stopped():
             cap = cv2.VideoCapture(self.url)
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
             if not cap.isOpened():
                 print("[RTSP RECONNECT] camB no se pudo abrir, reintentando…")
                 cap.release()
-                time.sleep(2)
+                time.sleep(1)
                 continue
 
             consecutive_failures = 0
 
             while not self.stopped():
-                ret, frame = cap.read()
-                if not ret:
+                grabbed = cap.grab()
+                if not grabbed:
                     consecutive_failures += 1
                     if consecutive_failures >= 5:
                         print("[RTSP RECONNECT] camB señal perdida, reintentando…")
                         break
-                    time.sleep(0.1)
+                    time.sleep(0.01)
+                    continue
+
+                ret, frame = cap.retrieve()
+                if not ret:
+                    time.sleep(0.01)
                     continue
 
                 consecutive_failures = 0
-                self._process_frame(frame)
+                now = time.time()
+                if self.last_frame_ts and now - self.last_frame_ts > 0.3:
+                    print("[DELAY WARNING] cam=camB delay=", round(now - self.last_frame_ts, 3))
+                self.last_frame_ts = now
+                self.frame_count += 1
+                print("[FRAME OK] cam=camB ts=", now)
+
+                if self.frame_count % 2 == 0:
+                    self._process_frame(frame)
 
             try:
                 cap.release()
@@ -118,7 +150,7 @@ class RTSPThread(BaseCameraThread):
                 pass
 
             if not self.stopped():
-                time.sleep(2)
+                time.sleep(1)
 
         print("[THREAD STOP] camB")
 
@@ -137,6 +169,7 @@ class VideoThreadManager:
     def start_camA(self):
         with self.lock:
             if self.camA_thread and self.camA_thread.is_alive():
+                print("[THREAD EXISTS] camA")
                 return
             self.stop_camA()
             self.camA_thread = WebcamThread(self.detector, self.video_manager, self.admin_events, self.db, source=0)
@@ -145,6 +178,7 @@ class VideoThreadManager:
     def start_camB(self):
         with self.lock:
             if self.camB_thread and self.camB_thread.is_alive():
+                print("[THREAD EXISTS] camB")
                 return
             self.stop_camB()
             self.camB_thread = RTSPThread(self.detector, self.video_manager, self.admin_events, self.db, url=self.rtsp_url)
@@ -156,12 +190,14 @@ class VideoThreadManager:
 
     def stop_camA(self):
         if self.camA_thread:
+            print("[THREAD STOP] camA")
             self.camA_thread.stop()
             self.camA_thread.join(timeout=2)
             self.camA_thread = None
 
     def stop_camB(self):
         if self.camB_thread:
+            print("[THREAD STOP] camB")
             self.camB_thread.stop()
             self.camB_thread.join(timeout=2)
             self.camB_thread = None

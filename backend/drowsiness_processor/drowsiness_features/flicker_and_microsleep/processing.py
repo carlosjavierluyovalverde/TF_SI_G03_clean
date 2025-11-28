@@ -34,6 +34,8 @@ class MicroSleepDetection(Detector):
         self.end_time: float = 0
         self.flag: bool = False
         self.close_eyes: bool = False
+        self.open_transition_time: float = 0
+        self.minimum_open_time: float = 0.2  # 200 ms noise filter
 
     def closed_eyes(self, eyes_distance: dict) -> bool:
         right_eyelid_upper = eyes_distance['right_upper_eyelid_distance']
@@ -48,17 +50,26 @@ class MicroSleepDetection(Detector):
         return self.close_eyes
 
     def detect(self, is_eyes_closed: bool) -> Tuple[bool, float]:
+        current_time = time.time()
         if is_eyes_closed and not self.flag:
-            self.start_time = time.time()
+            self.start_time = current_time
             self.flag = True
+            self.open_transition_time = 0
+        elif is_eyes_closed and self.flag:
+            self.open_transition_time = 0
         elif not is_eyes_closed and self.flag:
-            self.end_time = time.time()
-            flicker_duration = round(self.end_time - self.start_time, 0)
-            self.flag = False
-            if flicker_duration >= 2:
-                self.start_time = 0
-                self.end_time = 0
-                return True, flicker_duration
+            if not self.open_transition_time:
+                self.open_transition_time = current_time
+            open_duration = current_time - self.open_transition_time
+            if open_duration >= self.minimum_open_time:
+                self.end_time = current_time
+                flicker_duration = round(self.end_time - self.start_time, 0)
+                self.flag = False
+                self.open_transition_time = 0
+                if flicker_duration >= 2:
+                    self.start_time = 0
+                    self.end_time = 0
+                    return True, flicker_duration
         return False, 0.0
 
 

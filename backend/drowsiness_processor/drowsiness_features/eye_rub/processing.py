@@ -70,7 +70,7 @@ class EyeRubReportGenerator(ReportGenerator):
         return {
             'eye_rub_count': eye_rub_count,
             'eye_rub_durations': eye_rub_durations,
-            'report_message': f'Counting yawns... {round(0.5 - elapsed_time, 2)} seconds remaining.',
+            'report_message': f'Counting yawns... {round(0.8 - elapsed_time, 2)} seconds remaining.',
             'eye_rub_report': eye_rub_report
         }
 
@@ -99,7 +99,7 @@ class EyeRubEstimator(DrowsinessProcessor):
         if is_eye_rub_left:
             self.eye_rub_counter_left.increment(duration_eye_rub_left, 'left')
 
-        if elapsed_time >= 0.5:
+        if elapsed_time >= 0.8:
             eye_rub_data = {
                 "eye_rub_count": self.eye_rub_counter_right.eye_rub_count + self.eye_rub_counter_left.eye_rub_count,
                 "eye_rub_durations": self.eye_rub_counter_right.get_durations() + self.eye_rub_counter_left.get_durations(),
@@ -110,8 +110,8 @@ class EyeRubEstimator(DrowsinessProcessor):
             self.eye_rub_counter_left.reset()
             self.start_report = current_time
             return self.eye_rub_report_generator.generate_report(eye_rub_data)
-
+        
         return {
-            'report_message': f'Counting eye rubs... {round(0.5 - elapsed_time, 2)} seconds remaining.',
+            'report_message': f'Counting eye rubs... {round(0.8 - elapsed_time, 2)} seconds remaining.',
             'eye_rub_report': False,
         }

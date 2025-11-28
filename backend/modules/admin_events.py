@@ -24,6 +24,12 @@ class AdminEventsManager:
 
         for ws in list(self.connections):
             try:
+                print(
+                    "[WS SEND]",
+                    "camera=", payload.get("camera_id"),
+                    "timestamp=", payload.get("timestamp"),
+                    "payload=", payload,
+                )
                 await ws.send_text(msg)
             except:
                 self.disconnect(ws)

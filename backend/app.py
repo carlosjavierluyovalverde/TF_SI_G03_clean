@@ -4,6 +4,7 @@ import json
 import numpy as np
 import asyncio
 from typing import Optional
+from datetime import datetime
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 from modules.video_manager import VideoWebSocketManager
@@ -71,11 +72,18 @@ async def ws_client(websocket: WebSocket):
             sketch, report = detector.run(image, cam)
 
             if has_real_event(report):
+                report = dict(report)
+                report["camera_id"] = cam.lower()
                 if not report.get("timestamp"):
                     report = dict(report)
                     report["timestamp"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+                print(
+                    "[EVENT RECEIVED]",
+                    "camera=", cam,
+                    "timestamp=", report.get("timestamp"),
+                    "payload=", report,
+                )
                 db.save_event(cam, report)
-                print("REPORT ENVIADO A FLET:", report)
                 await admin_events.broadcast_event(report)
 
             await websocket.send_text("ok")
@@ -117,5 +125,13 @@ async def list_admin_events(camera_id: Optional[str] = None, since: Optional[str
     if camera_id and camera_id.lower() not in admin_events.VALID_CAMERA_IDS:
         return {"events": []}
 
-    events = db.get_events(camera_id=camera_id, since=since, limit=limit)
-    return {"events": events}
+    effective_since = since or db.session_start
+    print(
+        "[QUERY EVENTS]",
+        "camera=", camera_id,
+        "since=", effective_since,
+        "limit=", limit,
+    )
+
+    events = db.get_events(camera_id=camera_id, since=effective_since, limit=limit)
+    return {"events": events, "session_start": db.session_start}

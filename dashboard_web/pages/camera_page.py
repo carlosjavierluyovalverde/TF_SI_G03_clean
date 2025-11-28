@@ -7,8 +7,6 @@ import requests
 from components.video_box import VideoBox
 from datetime import datetime
 
-APP_START_TIME = datetime.utcnow().isoformat()
-
 class CameraPage(ft.Column):
 
     def __init__(self, page: ft.Page, camera_id: str):
@@ -17,7 +15,7 @@ class CameraPage(ft.Column):
         self.page = page
         self.camera_id = camera_id
         self.camera_id_canonical = str(camera_id).strip().lower()
-        self.session_start = APP_START_TIME
+        self.session_start = None
 
         self.video_box = VideoBox(camera_id, page)
 
@@ -66,6 +64,8 @@ class CameraPage(ft.Column):
         self.stop = False
         self.ws = None
         self.thread = None
+        self.ws_thread_running = False
+        print("[PAGE INIT]", "camera=", self.camera_id)
 
     def did_mount(self):
         self.stop = False
@@ -80,9 +80,13 @@ class CameraPage(ft.Column):
                 self.ws.close()
         except:
             pass
+        self.ws_thread_running = False
         self.video_box.will_unmount()
 
     def start_event_socket(self):
+
+        if self.ws_thread_running and self.thread and self.thread.is_alive():
+            return
 
         def _run():
             url = "ws://127.0.0.1:8000/ws/admin/events"
@@ -103,7 +107,7 @@ class CameraPage(ft.Column):
 
                         if data_camera_id != self.camera_id_canonical:
                             continue
-
+                        print("[WS MESSAGE RECEIVED]", "camera=", data_camera_id, "payload=", data)
                         self.page.call_from_thread(self._handle_new_event, data)
 
                 except:
@@ -112,6 +116,7 @@ class CameraPage(ft.Column):
 
         self.thread = threading.Thread(target=_run, daemon=True)
         self.thread.start()
+        self.ws_thread_running = True
 
     def format_report(self, rep: dict) -> str:
         events = rep.get("events", {}) if isinstance(rep, dict) else {}
@@ -160,6 +165,7 @@ class CameraPage(ft.Column):
 
         self.events_list.controls.insert(0, row)
         self.events_list.controls = self.events_list.controls[:100]
+        print("[APPEND EVENT]", "camera=", self.camera_id_canonical, "payload=", report)
 
     def _summarize_events(self, rep: dict) -> str:
         events = rep.get("events", {}) if isinstance(rep, dict) else {}
@@ -175,12 +181,12 @@ class CameraPage(ft.Column):
         return ", ".join(labels.get(a, a) for a in active)
 
     def load_recent_events(self):
+        print("[LOAD INITIAL EVENTS]", "camera=", self.camera_id)
         try:
             resp = requests.get(
                 "http://127.0.0.1:8000/admin/events",
                 params={
                     "camera_id": self.camera_id,
-                    "since": self.session_start,
                     "limit": 100,
                 },
                 timeout=5,
@@ -191,6 +197,8 @@ class CameraPage(ft.Column):
 
             payload = resp.json()
             events = payload.get("events", []) if isinstance(payload, dict) else []
+            if not self.session_start:
+                self.session_start = payload.get("session_start") or datetime.utcnow().isoformat()
 
             for ev in events:
                 report = ev.get("report", {}) if isinstance(ev, dict) else {}

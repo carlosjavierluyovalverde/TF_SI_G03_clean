@@ -62,7 +62,7 @@ class EventSocketManager:
 
     def _run(self):
         url = "ws://127.0.0.1:8000/ws/admin/events"
-        print("[WEBSOCKET LISTENER STARTED]", "cam=all")
+        print("[WS OPEN]", "cam=all")
 
         while not self.stop:
             try:
@@ -83,7 +83,7 @@ class EventSocketManager:
                     if not event:
                         continue
 
-                    print("[WEBSOCKET MESSAGE RECEIVED]", "cam=", event.get("camera_id"), "payload=", event)
+                    print("[WS MESSAGE RECEIVED]", "cam=", event.get("camera_id"), "payload=", event)
                     self.events.insert(0, event)
                     self.events = self.events[:50]
                     self._notify(event)

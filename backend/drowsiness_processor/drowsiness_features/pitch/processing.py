@@ -42,14 +42,14 @@ class PitchDetection(Detector):
             self.flag = True
         elif head_down and self.flag:
             pitch_duration = round(time.time() - self.start_time, 0)
-            if pitch_duration >= 1.5:
+            if pitch_duration >= 2.2:
                 self.start_time = time.time()
                 return True, pitch_duration
         elif not head_down and self.flag:
             self.end_time = time.time()
             pitch_duration = round(self.end_time - self.start_time, 0)
             self.flag = False
-            if pitch_duration >= 1.5:
+            if pitch_duration >= 2.2:
                 self.start_time = 0
                 self.end_time = 0
                 return True, pitch_duration

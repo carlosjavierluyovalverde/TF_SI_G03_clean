@@ -74,7 +74,7 @@ class YawnReportGenerator(ReportGenerator):
         return {
             'yawn_count': yawn_count,
             'yawn_durations': yawn_durations,
-            'report_message': f'Counting yawns... {180 - elapsed_time} seconds remaining.',
+            'report_message': f'Counting yawns... {round(1.2 - elapsed_time, 2)} seconds remaining.',
             'yawn_report': yawn_report
         }
 
@@ -88,14 +88,14 @@ class YawnEstimator(DrowsinessProcessor):
 
     def process(self, mouth_points: dict):
         current_time = time.time()
-        elapsed_time = round(current_time - self.start_report, 0)
+        elapsed_time = current_time - self.start_report
 
         open_mouth = self.yawn_detection.check_open_mouth(mouth_points)
         is_yawn, duration_yawn = self.yawn_detection.detect(open_mouth)
         if is_yawn:
             self.yawn_counter.increment(duration_yawn)
 
-        if elapsed_time >= 180:
+        if elapsed_time >= 1.2:
             yawn_data = {
                 "yawn_count": self.yawn_counter.yawn_count,
                 "yawn_durations": self.yawn_counter.get_durations(),
@@ -105,8 +105,8 @@ class YawnEstimator(DrowsinessProcessor):
             self.yawn_counter.reset()
             self.start_report = current_time
             return self.yawn_report_generator.generate_report(yawn_data)
-
+        
         return {
-            'yawn_count': f'Counting yawns... {180 - elapsed_time} seconds remaining.',
+            'yawn_count': f'Counting yawns... {round(1.2 - elapsed_time, 2)} seconds remaining.',
             'yawn_report': False
         }

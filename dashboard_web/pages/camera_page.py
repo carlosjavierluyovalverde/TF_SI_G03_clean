@@ -65,16 +65,18 @@ class CameraPage(ft.Column):
         self.ws = None
         self.thread = None
         self.ws_thread_running = False
-        print("[PAGE INIT]", "camera=", self.camera_id)
+        print("[PAGE INIT] Camera", self.camera_id)
 
     def did_mount(self):
         self.stop = False
+        self._switch_backend_mode(self.camera_id)
         self.load_recent_events()
         self.start_event_socket()
         self.video_box.did_mount()
 
     def will_unmount(self):
         self.stop = True
+        self._switch_backend_mode("none")
         try:
             if self.ws:
                 self.ws.close()
@@ -90,7 +92,7 @@ class CameraPage(ft.Column):
 
         def _run():
             url = "ws://127.0.0.1:8000/ws/admin/events"
-            print("[WEBSOCKET LISTENER STARTED]", "cam=", self.camera_id_canonical)
+            print("[WS OPEN]", self.camera_id_canonical)
 
             while not self.stop:
                 try:
@@ -108,10 +110,11 @@ class CameraPage(ft.Column):
 
                         if data_camera_id != self.camera_id_canonical:
                             continue
-                        print("[WEBSOCKET MESSAGE RECEIVED]", "cam=", data_camera_id, "payload=", data)
+                        print("[WS MESSAGE RECEIVED]", "cam=", data_camera_id, "payload=", data)
                         self.page.call_from_thread(self._handle_new_event, data)
 
-                except:
+                except Exception as e:
+                    print("[WS ERROR]", self.camera_id_canonical, e)
                     time.sleep(1)
                     continue
 
@@ -166,7 +169,7 @@ class CameraPage(ft.Column):
 
         self.events_list.controls.insert(0, row)
         self.events_list.controls = self.events_list.controls[:100]
-        print("[APPEND EVENT]", "camera=", self.camera_id_canonical, "payload=", report)
+        print("[APPEND EVENT] cam=", self.camera_id_canonical, "payload=", report)
 
     def _summarize_events(self, rep: dict) -> str:
         events = rep.get("events", {}) if isinstance(rep, dict) else {}
@@ -185,7 +188,7 @@ class CameraPage(ft.Column):
         print("[LOAD INITIAL EVENTS]", "camera=", self.camera_id)
         try:
             resp = requests.get(
-                "http://127.0.0.1:8000/admin/events",
+                "http://127.0.0.1:8000/events/recent",
                 params={
                     "camera_id": self.camera_id,
                     "limit": 100,
@@ -210,3 +213,9 @@ class CameraPage(ft.Column):
             self.page.update()
         except Exception:
             return
+
+    def _switch_backend_mode(self, mode: str):
+        try:
+            requests.post("http://127.0.0.1:8000/mode", json={"mode": mode}, timeout=2)
+        except Exception:
+            pass

@@ -3,7 +3,6 @@ class VideoWebSocketManager:
         self.active = {
             "camA": [],
             "camB": [],
-            "camC": []
         }
 
     async def connect(self, websocket, camera_id):

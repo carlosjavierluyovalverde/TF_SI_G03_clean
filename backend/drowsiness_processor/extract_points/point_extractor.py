@@ -15,6 +15,7 @@ class PointsExtractor:
         self.hands = HandsProcessor()
 
     def process(self, face_image: np.ndarray) -> Tuple[dict, bool, np.ndarray]:
+        hands_success = False
         face_points, mesh_success, draw_sketch = self.face_mesh.process(face_image, draw=True)
         if mesh_success:
             hands_points, hands_success, draw_sketch = self.hands.process(face_image, draw_sketch, draw=True)

@@ -15,9 +15,21 @@ class FaceMeshInference:
         )
 
     def process(self, image: np.ndarray) -> Tuple[bool, Any]:
-        rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        face_mesh = self.face_mesh.process(rgb_image)
-        return bool(face_mesh.multi_face_landmarks), face_mesh
+        try:
+            rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            face_mesh = self.face_mesh.process(rgb_image)
+            has_landmarks = bool(face_mesh.multi_face_landmarks)
+            if has_landmarks:
+                print(
+                    "[FACEMESH LANDMARKS RAW]", image.shape,
+                    "count=", len(face_mesh.multi_face_landmarks[0].landmark)
+                )
+            else:
+                print("[FACEMESH NO LANDMARKS RAW]", image.shape)
+            return has_landmarks, face_mesh
+        except Exception as exc:
+            print("[FACEMESH EXCEPTION]", exc, "shape=", image.shape)
+            return False, None
 
 
 class FaceMeshExtractor:
@@ -97,15 +109,32 @@ class FaceMeshProcessor:
         self.inference = FaceMeshInference()
         self.extractor = FaceMeshExtractor()
         self.drawer = FaceMeshDrawer()
+        self._last_status = None
 
     def process(self, face_image: np.ndarray, draw: bool = True) -> Tuple[dict, bool, np.ndarray]:
         h, w, _ = face_image.shape
         sketch = np.zeros((h, w, 3), dtype=np.uint8)
         success, face_mesh_info = self.inference.process(face_image)
+        if success != self._last_status:
+            print("[FACEMESH STATUS]", {"success": success, "shape": f"{h}x{w}"})
+            self._last_status = success
         if not success:
             return {}, success, sketch
 
         face_points = self.extractor.extract_points(face_image, face_mesh_info)
+        xs = [pt[1] for pt in face_points]
+        ys = [pt[2] for pt in face_points]
+        bbox_w = max(xs) - min(xs) + 1 if xs else 0
+        bbox_h = max(ys) - min(ys) + 1 if ys else 0
+        coverage = (bbox_w * bbox_h) / float(w * h) if w * h else 0.0
+        print(
+            "[FACEMESH LANDMARKS FILTERED]",
+            {
+                "bbox": f"{bbox_w}x{bbox_h}",
+                "coverage": round(coverage, 4),
+                "shape": f"{h}x{w}",
+            },
+        )
         points = {
             'eyes': self.extractor.get_eyes_points(face_points),
             'mouth': self.extractor.get_mouth_points(face_points),

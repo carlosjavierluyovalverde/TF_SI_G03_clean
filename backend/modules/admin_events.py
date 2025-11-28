@@ -1,18 +1,27 @@
+import asyncio
 import json
+
 
 class AdminEventsManager:
     VALID_CAMERA_IDS = {"cama", "camb"}
 
     def __init__(self):
         self.connections = []
+        self.loops = []
 
     async def connect(self, websocket):
         await websocket.accept()
         self.connections.append(websocket)
+        self.loops.append(asyncio.get_running_loop())
 
     def disconnect(self, websocket):
         if websocket in self.connections:
-            self.connections.remove(websocket)
+            idx = self.connections.index(websocket)
+            self.connections.pop(idx)
+            try:
+                self.loops.pop(idx)
+            except Exception:
+                pass
 
     async def broadcast_event(self, report: dict):
         payload = self._normalize_report(report)
@@ -20,17 +29,38 @@ class AdminEventsManager:
         if not payload:
             return
 
+        await self._send_payload(payload)
+
+    def broadcast_event_threadsafe(self, report: dict):
+        payload = self._normalize_report(report)
+        if not payload:
+            return
+
+        msg = json.dumps(payload)
+
+        for ws, loop in list(zip(self.connections, self.loops)):
+            try:
+                print(
+                    "[WS SEND]",
+                    "cam=", payload.get("camera_id"),
+                    "payload=", payload,
+                )
+                asyncio.run_coroutine_threadsafe(ws.send_text(msg), loop)
+            except Exception:
+                self.disconnect(ws)
+
+    async def _send_payload(self, payload: dict):
         msg = json.dumps(payload)
 
         for ws in list(self.connections):
             try:
                 print(
-                    "[WEBSOCKET SEND]",
+                    "[WS SEND]",
                     "cam=", payload.get("camera_id"),
-                    "event=", payload,
+                    "payload=", payload,
                 )
                 await ws.send_text(msg)
-            except:
+            except Exception:
                 self.disconnect(ws)
 
     def _normalize_report(self, report: dict) -> dict:

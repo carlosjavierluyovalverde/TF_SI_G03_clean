@@ -1,5 +1,6 @@
 import sqlite3
 import json
+from datetime import datetime
 from pathlib import Path
 
 
@@ -10,7 +11,40 @@ class AdminDatabase:
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
 
         self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
+        self.session_meta = self.db_path.with_suffix(".session.json")
         self.create_table()
+        self.session_start = self._load_session_start()
+
+    def _load_session_start(self) -> str:
+        """Persist a session marker so history survives restarts."""
+
+        if self.session_meta.exists():
+            try:
+                data = json.loads(self.session_meta.read_text())
+                ts = data.get("session_start")
+                if ts:
+                    return ts
+            except Exception:
+                pass
+
+        earliest = self._get_earliest_timestamp()
+        now = earliest or datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        try:
+            self.session_meta.write_text(json.dumps({"session_start": now}))
+        except Exception:
+            pass
+
+        return now
+
+    def _get_earliest_timestamp(self) -> str:
+        try:
+            cur = self.conn.execute("SELECT timestamp FROM events ORDER BY timestamp ASC LIMIT 1")
+            row = cur.fetchone()
+            if row and row[0]:
+                return row[0]
+        except Exception:
+            return ""
+        return ""
 
     def create_table(self):
         q = """
@@ -43,13 +77,15 @@ class AdminDatabase:
         q = "SELECT id, camera_id, report_json, timestamp FROM events WHERE 1=1"
         params = []
 
+        effective_since = since or self.session_start
+
         if camera_id:
             q += " AND lower(camera_id) = lower(?)"
             params.append(camera_id)
 
-        if since:
+        if effective_since:
             q += " AND timestamp >= ?"
-            params.append(since)
+            params.append(effective_since)
 
         q += " ORDER BY timestamp DESC LIMIT ?"
         params.append(limit)
